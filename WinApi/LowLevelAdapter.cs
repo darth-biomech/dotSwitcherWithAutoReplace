@@ -155,11 +155,6 @@ namespace dotSwitcher.WinApi
 
         public static void ReleasePressedFnKeys()
         {
-            // temp solution
-            //ReleasePressedKey(Keys.LMenu, true),
-            //ReleasePressedKey(Keys.RMenu, true),
-            //ReleasePressedKey(Keys.LWin, true),
-            //ReleasePressedKey(Keys.RWin, true),
             ReleasePressedKey(Keys.RControlKey, false);
             ReleasePressedKey(Keys.LControlKey, false);
             ReleasePressedKey(Keys.LShiftKey, false);
@@ -231,36 +226,21 @@ namespace dotSwitcher.WinApi
             }
             return (System.Windows.Forms.Keys)(((keyNumber & 0xFF00) << 8) | (keyNumber & 0xFF));
         }
+
+        private static IDataObject clipboardBackup;
+        
         public static void BackupClipboard()
         {
-            //lDataObject = Clipboard.GetDataObject();
-            //if (lDataObject == null) 
-            //{
-            //    return;
-            //}
-            //lFormats = lDataObject.GetFormats(false);
-            //lBackup = new Dictionary<string, object>();
-            //foreach(var lFormat in lFormats)
-            //{
-            //  lBackup.Add(lFormat, lDataObject.GetData(lFormat, false));
-            //}
-            //Debug.WriteLine(lDataObject);
-            //Debug.WriteLine(lFormats);
+                clipboardBackup = Clipboard.GetDataObject();
         }
 
         public static void RestoreClipboard()
         {
-            //Debug.WriteLine(lDataObject);
-            //Debug.WriteLine(lFormats);
-            //if (lDataObject == null)
-            //{
-            //    return;
-            //}
-            //foreach (var lFormat in lFormats)
-            //{
-            //    lDataObject.SetData(lBackup[lFormat]);
-            //}
-            //Clipboard.SetDataObject(lDataObject);
+            if (clipboardBackup != null)
+            {
+                Clipboard.SetDataObject(clipboardBackup,true,10,100);
+            }
+            clipboardBackup = null;
         }
 
     }

@@ -4,6 +4,10 @@ dotSwitcher
 
 Simple keyboard layout switcher. As lightweight as you can easily ensure it doesn't contain any spyware, even if you're not a programming guru.
 
+Changes in this fork
+-----
+I've added a functionality for autoreplacing user-defined combinations, since this is a killer-feature of Punto I couldn't find anywhere else.
+
 Usage
 -----
 * Run

@@ -18,6 +18,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.Windows.Forms;
 
@@ -36,15 +37,35 @@ namespace dotSwitcher.Data
             }
             if (settings.ConvertSelectionHotkey.KeyData == Keys.None)
             {
-                settings.ConvertSelectionHotkey = new KeyboardEventArgs(Keys.Pause | Keys.Shift, false);
+                settings.ConvertSelectionHotkey = new KeyboardEventArgs(Keys.F12 | Keys.ControlKey, false);
+            }
+            if (settings.ReplaceHotkey.KeyData == Keys.None)
+            {
+                settings.ReplaceHotkey = new KeyboardEventArgs(Keys.F12 | Keys.Shift, false);
             }
             if (settings.ShowTrayIcon == null)
             {
                 settings.ShowTrayIcon = true;
             }
+            if (settings.AutoReplace == null)
+            {
+                settings.AutoReplace = false;
+            }
+            if (settings.AutoReplaceSpace == null)
+            {
+                settings.AutoReplaceSpace = true;
+            }
+            if (settings.AutoReplaceEnter == null)
+            {
+                settings.AutoReplaceEnter = true;
+            }
             if (settings.SwitchDelay < 1)
             {
                 settings.SwitchDelay = 20;
+            }
+            if (settings.ReplacementList == null)
+            {
+                settings.ReplacementList = Array.Empty<string>();
             }
             settings.Save();
             return settings;
@@ -53,16 +74,28 @@ namespace dotSwitcher.Data
         [UserScopedSetting]
         [SettingsSerializeAs(SettingsSerializeAs.Binary)]
         [DefaultSettingValue("")]
+        public string[] ReplacementList 
+        {
+            get => (string[])this["ReplacementList"];
+            set => this["ReplacementList"] = (string[])value;
+        }
+
+        [UserScopedSetting]
+        [SettingsSerializeAs(SettingsSerializeAs.Binary)]
+        [DefaultSettingValue("")]
+        public KeyboardEventArgs ReplaceHotkey
+        {
+            get => (KeyboardEventArgs)this["ReplaceHotkey"];
+            set => this["ReplaceHotkey"] = (KeyboardEventArgs)value;
+        }
+
+        [UserScopedSetting]
+        [SettingsSerializeAs(SettingsSerializeAs.Binary)]
+        [DefaultSettingValue("")]
         public KeyboardEventArgs SwitchHotkey
         {
-            get
-            {
-                return (KeyboardEventArgs)this["SwitchHotkey"];
-            }
-            set
-            {
-                this["SwitchHotkey"] = (KeyboardEventArgs)value; 
-            }
+            get => (KeyboardEventArgs)this["SwitchHotkey"];
+            set => this["SwitchHotkey"] = (KeyboardEventArgs)value;
         }
 
         [UserScopedSetting]
@@ -70,14 +103,8 @@ namespace dotSwitcher.Data
         [DefaultSettingValue("")]
         public KeyboardEventArgs ConvertSelectionHotkey
         {
-            get
-            {
-                return (KeyboardEventArgs)this["ConvertSelectionHotkey"];
-            }
-            set
-            {
-                this["ConvertSelectionHotkey"] = (KeyboardEventArgs)value;
-            }
+            get => (KeyboardEventArgs)this["ConvertSelectionHotkey"];
+            set => this["ConvertSelectionHotkey"] = (KeyboardEventArgs)value;
         }
 
         [UserScopedSetting]
@@ -85,14 +112,8 @@ namespace dotSwitcher.Data
         [DefaultSettingValue("")]
         public KeyboardEventArgs SwitchLayoutHotkey
         {
-            get
-            {
-                return (KeyboardEventArgs)this["SwitchLayoutHotkey"];
-            }
-            set
-            {
-                this["SwitchLayoutHotkey"] = (KeyboardEventArgs)value;
-            }
+            get => (KeyboardEventArgs)this["SwitchLayoutHotkey"];
+            set => this["SwitchLayoutHotkey"] = (KeyboardEventArgs)value;
         }
 
         [UserScopedSetting]
@@ -100,29 +121,41 @@ namespace dotSwitcher.Data
         [DefaultSettingValue("")]
         public bool? AutoStart
         {
-            get
-            {
-                return (bool?)this["AutoStart"];
-            }
-            set
-            {
-                this["AutoStart"] = (bool?)value;
-            }
+            get => (bool?)this["AutoStart"];
+            set => this["AutoStart"] = (bool?)value;
         }
 
         [UserScopedSetting]
         [SettingsSerializeAs(SettingsSerializeAs.Binary)]
         [DefaultSettingValue("")]
+        public bool? AutoReplace
+        {
+            get => (bool?)this["AutoReplace"];
+            set => this["AutoReplace"] = (bool?)value;
+        }
+        [UserScopedSetting]
+        [SettingsSerializeAs(SettingsSerializeAs.Binary)]
+        [DefaultSettingValue("")]
+        public bool? AutoReplaceSpace
+        {
+            get => (bool?)this["AutoReplaceSpace"];
+            set => this["AutoReplaceSpace"] = (bool?)value;
+        }
+        [UserScopedSetting]
+        [SettingsSerializeAs(SettingsSerializeAs.Binary)]
+        [DefaultSettingValue("")]
+        public bool? AutoReplaceEnter
+        {
+            get => (bool?)this["AutoReplaceEnter"];
+            set => this["AutoReplaceEnter"] = (bool?)value;
+        }
+        [UserScopedSetting]
+        [SettingsSerializeAs(SettingsSerializeAs.Binary)]
+        [DefaultSettingValue("")]
         public bool? ShowTrayIcon
         {
-            get
-            {
-                return (bool?)this["ShowTrayIcon"];
-            }
-            set
-            {
-                this["ShowTrayIcon"] = (bool?)value;
-            }
+            get => (bool?)this["ShowTrayIcon"];
+            set => this["ShowTrayIcon"] = (bool?)value;
         }
 
         [UserScopedSetting]
@@ -130,14 +163,8 @@ namespace dotSwitcher.Data
         [DefaultSettingValue("")]
         public int SwitchDelay
         {
-            get
-            {
-                return (int)this["SwitchDelay"];
-            }
-            set
-            {
-                this["SwitchDelay"] = (int)value;
-            }
+            get => (int)this["SwitchDelay"];
+            set => this["SwitchDelay"] = (int)value;
         }
 
         [UserScopedSetting]
@@ -145,14 +172,22 @@ namespace dotSwitcher.Data
         [DefaultSettingValue("")]
         public bool? SmartSelection
         {
-            get
+            get => (bool?)this["SmartSelection"];
+            set => this["SmartSelection"] = (bool?)value;
+        }
+
+        public void SaveReplacementList(List<ReplacementEntry> replacementList)
+        {
+            if (replacementList.Count <= 0) return;
+            
+            string[] result = new string[replacementList.Count];
+            
+            for (int i = 0; i < replacementList.Count; i++)
             {
-                return (bool?)this["SmartSelection"];
+                result[i] = replacementList[i].Serialize();
             }
-            set
-            {
-                this["SmartSelection"] = (bool?)value;
-            }
+            
+            ReplacementList = result;
         }
     }
     

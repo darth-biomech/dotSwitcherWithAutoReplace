@@ -23,7 +23,12 @@ namespace dotSwitcher.Data
         KeyboardEventArgs SwitchHotkey { get; set; }
         KeyboardEventArgs SwitchLayoutHotkey { get; set; }
         KeyboardEventArgs ConvertSelectionHotkey { get; set; }
+        KeyboardEventArgs ReplaceHotkey { get; set; }
         int SwitchDelay { get; set; }
         bool? SmartSelection { get; set; }
+        bool?  AutoReplaceSpace { get; set; }
+        bool?  AutoReplaceEnter { get; set; }
+        string[] ReplacementList { get; set; }
+        bool? AutoReplace { get; set; }
     }
 }

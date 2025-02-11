@@ -88,9 +88,54 @@ namespace dotSwitcher.UI
             checkBoxAutorun.Checked = settings.AutoStart == true;
             checkBoxTrayIcon.Checked = settings.ShowTrayIcon == true;
             checkBoxSmartSelection.Checked = settings.SmartSelection == true;
+            
+            textBoxReplaceHotkey.Text = ReplaceCtrls(settings.ReplaceHotkey.ToString());
+            checkBoxReplace.Checked = settings.AutoReplace == true;
+            checkBoxReplaceEnter.Checked = settings.AutoReplaceEnter == true;
+            checkBoxReplaceSpace.Checked = settings.AutoReplaceSpace == true;
+            if(checkBoxReplace.Checked)
+            {
+                checkBoxReplaceEnter.Enabled = true;
+                checkBoxReplaceSpace.Enabled = true;
+            }
+            else
+            {
+                checkBoxReplaceEnter.Enabled = false;
+                checkBoxReplaceSpace.Enabled = false;
+            }
             DisplaySwitchDelay(settings.SwitchDelay);
             icon.SetRunning(engine.IsStarted());
+            RepopulateReplacementList();
         }
+
+        private void RepopulateReplacementList()
+        {
+            replacementOptionsPanel.Controls.Clear();
+            foreach (ReplacementEntry entry in engine.replacementList)
+            {
+                replacementOptionsPanel.Controls.Add(new ReplacementEntryControl(entry));
+            }
+        }
+
+        private void CollectReplacementList()
+        {
+            List<ReplacementEntry> newList = new();
+            foreach (Control control in replacementOptionsPanel.Controls)
+            {
+                if (control is ReplacementEntryControl entryControl)
+                {
+                    ReplacementEntry entry = entryControl.GetData();
+                    if (entry.IsIncomplete())
+                        continue;
+                    
+                    newList.Add(entry);
+                }
+            }
+            engine.replacementList = newList;
+            settings.SaveReplacementList(newList);
+            
+        }
+
         // also ESC
         void buttonCancelSettings_Click(object sender, EventArgs e)
         {
@@ -184,7 +229,7 @@ namespace dotSwitcher.UI
         KeyboardHook kbdHook;
         KeyboardEventArgs currentHotkey;
         HotKeyType currentHotkeyType;
-        enum HotKeyType { None, Switch, Convert, SwitchLayout }
+        enum HotKeyType { None, Switch, Convert, SwitchLayout,Replace }
         void InitializeHotkeyBoxes()
         {
             textBoxSwitchHotkey.GotFocus += (s, e) => currentHotkeyType = HotKeyType.Switch;
@@ -199,6 +244,10 @@ namespace dotSwitcher.UI
             textBoxSwitchLayoutHotkey.Enter += (s, e) => currentHotkeyType = HotKeyType.SwitchLayout;
             textBoxSwitchLayoutHotkey.LostFocus += (s, e) => ApplyCurrentHotkey();
             textBoxSwitchLayoutHotkey.Leave += (s, e) => ApplyCurrentHotkey();
+            textBoxReplaceHotkey.GotFocus += (s, e) => currentHotkeyType = HotKeyType.Replace;
+            textBoxReplaceHotkey.Enter += (s, e) => currentHotkeyType = HotKeyType.Replace;
+            textBoxReplaceHotkey.LostFocus += (s, e) => ApplyCurrentHotkey();
+            textBoxReplaceHotkey.Leave += (s, e) => ApplyCurrentHotkey();
             currentHotkeyType = HotKeyType.None;
             kbdHook = new KeyboardHook();
             kbdHook.KeyboardEvent += kbdHook_KeyboardEvent;
@@ -240,6 +289,9 @@ namespace dotSwitcher.UI
                 case HotKeyType.SwitchLayout:
                     currentTextBox = textBoxSwitchLayoutHotkey;
                     break;
+                case HotKeyType.Replace:
+                    currentTextBox = textBoxReplaceHotkey;
+                    break;
                 default:
                     currentTextBox = null;
                     break;
@@ -272,6 +324,9 @@ namespace dotSwitcher.UI
                 case HotKeyType.SwitchLayout:
                     currentHotkey = clear ? null : settings.SwitchLayoutHotkey;
                     break;
+                case HotKeyType.Replace:
+                    currentHotkey = clear ? null : settings.ReplaceHotkey;
+                    break;
                 default:
                     currentHotkey = null;
                     break;
@@ -296,6 +351,9 @@ namespace dotSwitcher.UI
                 case HotKeyType.SwitchLayout:
                     settings.SwitchLayoutHotkey = currentHotkey;
                     break;
+                case HotKeyType.Replace:
+                    settings.ReplaceHotkey = currentHotkey;
+                    break;
                 default:
                     break;
             }
@@ -307,6 +365,7 @@ namespace dotSwitcher.UI
          */
         void SaveSettings()
         {
+            CollectReplacementList();
             settings.Save();
 
             if (settings.AutoStart == true) { LowLevelAdapter.CreateAutorunShortcut(); }
@@ -369,6 +428,16 @@ namespace dotSwitcher.UI
             toolTip1.Hide(label5);
         }
 
+        private void label6_MouseHover(object sender, EventArgs e)
+        {
+            toolTip1.Show("Erase both 'replace' and 'with' to delete replacement option", label6);
+        }
+
+        private void label6_MouseLeave(object sender, EventArgs e)
+        {
+            toolTip1.Hide(label6);
+        }
+
         private void toolTip1_Popup(object sender, PopupEventArgs e)
         {
 
@@ -377,6 +446,36 @@ namespace dotSwitcher.UI
         private void smartSelection_CheckedChanged(object sender, EventArgs e)
         {
             settings.SmartSelection = checkBoxSmartSelection.Checked;
+        }
+
+        private void checkBoxReplace_CheckedChanged(object sender, EventArgs e)
+        {
+            settings.AutoReplace = checkBoxReplace.Checked;
+            if(checkBoxReplace.Checked)
+            {
+                checkBoxReplaceEnter.Enabled = true;
+                checkBoxReplaceSpace.Enabled = true;
+            }
+            else
+            {
+                checkBoxReplaceEnter.Enabled = false;
+                checkBoxReplaceSpace.Enabled = false;
+            }
+        }
+
+        private void checkBoxReplaceEnter_CheckedChanged(object sender, EventArgs e)
+        {
+            settings.AutoReplaceEnter = checkBoxReplaceEnter.Checked;
+        }
+
+        private void checkBoxReplaceSpace_CheckedChanged(object sender, EventArgs e)
+        {
+            settings.AutoReplaceSpace = checkBoxReplaceSpace.Checked;
+        }
+
+        private void buttonAddReplacement_Click(object sender, EventArgs e)
+        {
+            replacementOptionsPanel.Controls.Add(new ReplacementEntryControl());
         }
     }
 }

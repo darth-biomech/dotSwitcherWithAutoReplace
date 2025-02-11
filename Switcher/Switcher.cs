@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -37,6 +38,8 @@ namespace dotSwitcher.Switcher
         private MouseHook mouseHook;
         private ISettings settings;
         private bool readyToSwitch;
+        public List<ReplacementEntry> replacementList = new List<ReplacementEntry>();
+
         public SwitcherCore(ISettings settings)
         {
             this.settings = settings;
@@ -45,6 +48,19 @@ namespace dotSwitcher.Switcher
             mouseHook = new MouseHook();
             mouseHook.MouseEvent += ProcessMousePress;
             readyToSwitch = false;
+            PopulateReplacementList(settings);
+        }
+
+        private void PopulateReplacementList(ISettings settings)
+        {
+            if(this.settings.ReplacementList.Length > 0)
+            {
+                replacementList.Clear();
+                foreach (string rpl in settings.ReplacementList)
+                {
+                    replacementList.Add(ReplacementEntry.Deserialize(rpl));
+                }
+            }
         }
 
 
@@ -135,6 +151,13 @@ namespace dotSwitcher.Switcher
                 evtData.Handled = false;
                 return;
             }
+
+            if (evtData.Equals(settings.ReplaceHotkey) && readyToSwitch)
+            {
+                ReplaceTyped(null);
+                evtData.Handled = false;
+                return;
+            }
         }
 
         private void OnKeyPress(KeyboardEventArgs evtData)
@@ -159,6 +182,8 @@ namespace dotSwitcher.Switcher
             if (evtData.Equals(settings.ConvertSelectionHotkey))
             {
                 ConvertSelection();
+                evtData.Handled = true;
+                return;
             }
 
             if (this.HaveTrackingKeys(evtData))
@@ -166,6 +191,19 @@ namespace dotSwitcher.Switcher
 
             var notModified = !this.HaveModifiers(evtData);
 
+            if (settings.AutoReplace == true)
+            {
+                if (vkCode == Keys.Space && settings.AutoReplaceSpace == true)
+                {
+                    ReplaceTyped(evtData);
+                    return;
+                }
+                if (vkCode == Keys.Enter && settings.AutoReplaceEnter == true)
+                {
+                    ReplaceTyped(evtData);
+                    return;
+                }
+            }
             if (vkCode == Keys.Space && notModified) { AddToCurrentSelection(evtData); return; }
             if (vkCode == Keys.Back && notModified) { RemoveLast(); return; }
             if (IsPrintable(evtData))
@@ -202,6 +240,94 @@ namespace dotSwitcher.Switcher
         }
         #endregion
 
+        
+        //BUG: damn thing lapses into recursive execution, somehow, and deletes shitload of the original text...
+        private void ReplaceTyped(KeyboardEventArgs replaceTrigger)
+        {
+            LowLevelAdapter.ReleasePressedFnKeys();
+            
+            if (currentSelection == null || currentSelection.Count <= 1)
+            {
+                if(replaceTrigger != null)
+                    LowLevelAdapter.SendKeyPress(replaceTrigger.KeyCode, replaceTrigger.Shift);
+                BeginNewSelection();
+                return;
+            }
+            
+            var selection = currentSelection.ToList();
+
+            StringBuilder input = new StringBuilder();
+            foreach (KeyboardEventArgs eventArgs in selection)
+            {
+                    input.Append(GetCharsFromKeys(eventArgs.KeyCode,eventArgs.Shift));
+            }
+            string inputString = input.ToString();
+            if (!string.IsNullOrEmpty(inputString) && inputString.Length != 0)
+            {
+                string lastWord = inputString.Split(' ').Last();
+                inputString = inputString.Replace(lastWord, "");
+                if (lastWord == "")
+                    return;
+                bool isMatch = false;
+                foreach (ReplacementEntry entry in replacementList)
+                {
+                    if (entry.Matches(lastWord))
+                    {
+                        lastWord = entry.Replace(lastWord);
+                        isMatch = true;
+                    }
+                }
+
+                if(!isMatch)
+                {
+                    if(replaceTrigger != null)
+                        LowLevelAdapter.SendKeyPress(replaceTrigger.KeyCode, replaceTrigger.Shift);
+                    BeginNewSelection();
+                    return;
+                }
+                
+                selection.Clear();
+                foreach (char c in lastWord)
+                {
+                    selection.Add(new KeyboardEventArgs(LowLevelAdapter.ToKey(c), false));
+                }
+
+                if (replaceTrigger != null)
+                    selection.Add(replaceTrigger);
+
+                var backspaces = Enumerable.Repeat<Keys>(Keys.Back, selection.Count);
+                foreach (var vkCode in backspaces)
+                {
+                    LowLevelAdapter.SendKeyPress(vkCode, false);
+                }
+
+                foreach (var data in selection)
+                {
+                    LowLevelAdapter.SendKeyPress(data.KeyCode, data.Shift);
+                }
+                BeginNewSelection();
+            }
+        }
+        static string GetCharsFromKeys(Keys keys, bool shift=false, bool altGr=false)
+        {
+            var buf = new StringBuilder(256);
+            var keyboardState = new byte[256];
+            if (shift)
+                keyboardState[(int) Keys.ShiftKey] = 0xff;
+            if (altGr)
+            {
+                keyboardState[(int) Keys.ControlKey] = 0xff;
+                keyboardState[(int) Keys.Menu] = 0xff;
+            }
+            ToUnicode((uint) keys, 0, keyboardState, buf, 256, 0);
+            return buf.ToString();
+        }
+        [DllImport("user32.dll")]
+        public static extern int ToUnicode(uint virtualKeyCode, uint scanCode,
+            byte[] keyboardState,
+            [Out, MarshalAs(UnmanagedType.LPWStr, SizeConst = 64)]
+            StringBuilder receivingBuffer,
+            int bufferSize, uint flags);
         private void ConvertSelection()
         {
             LowLevelAdapter.BackupClipboard();
