@@ -1,3 +1,5 @@
+Currently unusable!
+===========
 dotSwitcher
 ===========
 *If you're paranoid enough not to use [Punto switcher](http://punto.yandex.ru "closed source software")*
